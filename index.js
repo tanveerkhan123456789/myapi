@@ -46,12 +46,9 @@ async function startVenom() {
             {
                 folderNameToken: 'tokens',
                 mkdirFolderToken: path.join(__dirname, 'briway-sessions'),
-                headless: false, // Use headless: true for production
+                headless: 'new', // Use headless: true for production
                 multidevice: true,
-                puppeteerOptions: {
-                    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-                    timeout: 60000 // Increase timeout to 60 seconds
-                }
+              
             }
         );
 
