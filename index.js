@@ -4,25 +4,25 @@ const fs = require('fs');
 const mongoose = require('mongoose');
 const express = require('express');
 const multer = require('multer');
-const { Online_db_connection, local_db_connection } = require('./database/index');
+const { Online_db_connection } = require('./database/index');
 
 // Multer storage configuration
-// const storage = multer.diskStorage({
-//     destination: function (req, file, cb) {
-//         const dir = "./public/uploads";
-//         if (!fs.existsSync(dir)) {
-//             fs.mkdirSync(dir, { recursive: true });
-//         }
-//         cb(null, dir);
-//     },
-//     filename: function (req, file, cb) {
-//         cb(null, `${Date.now()}_${file.originalname}`);
-//     }
-// });
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const dir = "./public/uploads";
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        cb(null, `${Date.now()}_${file.originalname}`);
+    }
+});
 
 // Multer setup
 const upload = multer({ storage });
-const as=0;
+
 // Venom-bot setup with persistent session
 let venomClient;
 async function startVenom() {
@@ -44,20 +44,15 @@ async function startVenom() {
                 console.log('Session name:', session);
             },
             {
-                folderNameToken: 'tokens', //folder name when saving tokens
-                mkdirFolderToken: './node_modules', //folder directory tokens, just inside the venom folder, example:  { mkdirFolderToken: '/node_modules', } //will save the tokens folder in the node_modules directory
-                headless: false, // Headless chrome
-                devtools: false, // Open devtools by default
-                useChrome: true, // If false will use Chromium instance
-                debug: false, // Opens a debug session
-                logQR: true, // Logs QR automatically in terminal
-                browserArgs: ['--no-sandbox', '--disable-setuid-sandbox'], // Parameters to be added into the chrome browser instance
-                disableSpins: true, // Will disable Spinnies animation, useful for containers (docker) for a better log
-                disableWelcome: true, // Will disable the welcoming message which appears in the beginning
-                updates: true, // Logs info updates automatically in terminal
-                autoClose: 60000, // Automatically closes the venom-bot only when scanning the QR code (default 60 seconds, if you want to turn it off, assign 0 or false)
-              }
-
+                folderNameToken: 'tokens',
+                mkdirFolderToken: path.join(__dirname, 'briway-sessions'),
+                headless: false, // Use headless: true for production
+                multidevice: true,
+                puppeteerOptions: {
+                    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+                    timeout: 60000 // Increase timeout to 60 seconds
+                }
+            }
         );
 
         console.log('Venom bot session started successfully');
@@ -69,17 +64,23 @@ async function startVenom() {
 
 // Create Express app
 const app = express();
-const port = 3000; // Example port
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views')); // Explicitly set the views directory
+const port = process.env.PORT || 3000; // Use environment port if available
 
-// Set up EJS templating engine
+// Set up view engine and directory
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
 // Serve static files from the public directory
-// app.use('/public', express.static('public'));
+app.use('/public', express.static('public'));
 
 // Parse form data
 app.use(express.urlencoded({ extended: true }));
+
+// Logging middleware
+app.use((req, res, next) => {
+    console.log(`[${new Date().toLocaleString()}] ${req.method} ${req.url}`);
+    next();
+});
 
 // Route for the homepage with the form
 app.get('/', (req, res) => {
@@ -87,7 +88,7 @@ app.get('/', (req, res) => {
 });
 
 // Route to handle form submissions
-app.post('/send', upload.single('image'), async (req, res) => {
+app.post('/send', upload.single('image'), async (req, res, next) => {
     const number = req.body.number;
     const message = req.body.message;
     const imageUrl = req.file ? req.file.filename : null; // Get image path if uploaded
@@ -105,10 +106,15 @@ app.post('/send', upload.single('image'), async (req, res) => {
 
         // Send text message
         const textResult = await venomClient.sendText(chatId, message);
-        // logs.push(`Message sent to ${number}: ${JSON.stringify(textResult)}`);
+        logs.push(`Message sent to ${number}: ${JSON.stringify(textResult)}`);
 
         // Send image if uploaded
-
+        let imageResult;
+        if (imageUrl) {
+            const imagePath = path.join(__dirname, 'public/uploads', imageUrl);
+            imageResult = await venomClient.sendImage(chatId, imagePath, 'Image from website');
+            logs.push(`Image sent to ${number}: ${JSON.stringify(imageResult)}`);
+        }
 
         // Save message details to MongoDB
         const messageDetails = {
@@ -135,11 +141,14 @@ app.post('/send', upload.single('image'), async (req, res) => {
     } catch (err) {
         console.error('Error sending message:', err);
         logs.push(`Error sending message: ${err.message}`);
-        res.status(500).json({
-            success: false,
-            logs
-        });
+        next(err); // Pass error to the error handling middleware
     }
+});
+
+// Global error handler middleware
+app.use((err, req, res, next) => {
+    console.error('Global error handler:', err);
+    res.status(500).json({ success: false, error: err.message });
 });
 
 // Start the server and connect to the database
