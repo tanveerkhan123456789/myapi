@@ -12,22 +12,21 @@
         <input type="text" id="number" name="number" required><br><br>
         <label for="message">Message:</label>
         <input type="text" id="message" name="message" required><br><br>
-        <label for="image">Image:</label>
-        <input type="file" id="image" name="image"><br><br>
+
         <button type="submit">Send</button>
     </form>
 
     <script>
         document.getElementById('messageForm').addEventListener('submit', async (event) => {
             event.preventDefault();
-            
+
             const formData = new FormData(event.target);
             try {
                 const response = await fetch('/send', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const result = await response.json();
                 if (result.success) {
                     result.logs.forEach(log => console.log(log));

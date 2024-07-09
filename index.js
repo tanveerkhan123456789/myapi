@@ -7,18 +7,18 @@ const multer = require('multer');
 const { Online_db_connection, local_db_connection } = require('./database/index');
 
 // Multer storage configuration
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const dir = "./public/uploads";
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        cb(null, dir);
-    },
-    filename: function (req, file, cb) {
-        cb(null, `${Date.now()}_${file.originalname}`);
-    }
-});
+// const storage = multer.diskStorage({
+//     destination: function (req, file, cb) {
+//         const dir = "./public/uploads";
+//         if (!fs.existsSync(dir)) {
+//             fs.mkdirSync(dir, { recursive: true });
+//         }
+//         cb(null, dir);
+//     },
+//     filename: function (req, file, cb) {
+//         cb(null, `${Date.now()}_${file.originalname}`);
+//     }
+// });
 
 // Multer setup
 const upload = multer({ storage });
@@ -76,7 +76,7 @@ app.set('views', path.join(__dirname, 'views')); // Explicitly set the views dir
 // Set up EJS templating engine
 
 // Serve static files from the public directory
-app.use('/public', express.static('public'));
+// app.use('/public', express.static('public'));
 
 // Parse form data
 app.use(express.urlencoded({ extended: true }));
@@ -105,15 +105,10 @@ app.post('/send', upload.single('image'), async (req, res) => {
 
         // Send text message
         const textResult = await venomClient.sendText(chatId, message);
-        logs.push(`Message sent to ${number}: ${JSON.stringify(textResult)}`);
+        // logs.push(`Message sent to ${number}: ${JSON.stringify(textResult)}`);
 
         // Send image if uploaded
-        let imageResult;
-        if (imageUrl) {
-            const imagePath = path.join(__dirname, 'public/uploads', imageUrl);
-            imageResult = await venomClient.sendImage(chatId, imagePath, 'Image from website');
-            logs.push(`Image sent to ${number}: ${JSON.stringify(imageResult)}`);
-        }
+
 
         // Save message details to MongoDB
         const messageDetails = {
