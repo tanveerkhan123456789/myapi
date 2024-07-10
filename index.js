@@ -44,10 +44,8 @@ async function startVenom() {
                 console.log('Session name:', session);
             },
             {
-                folderNameToken: 'tokens',
-                mkdirFolderToken: path.join(__dirname, 'briway-sessions'),
-                headless: 'new', // Use headless: true for production
-                multidevice: true,
+                   headless: true,
+        disableWelcome: true,
               
             }
         );
